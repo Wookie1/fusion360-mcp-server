@@ -148,6 +148,16 @@ class EventBridge:
         """Reimport command_handler and replace the active handler instance."""
         import importlib
 
+        # ponytail: hot-reload is only reliable on the FIRST call after a
+        # Fusion (re)start. Fusion loads the add-in under a synthetic
+        # "__main__%2F...server.command_handler" module name, and
+        # importlib.reload on that custom-loader module doesn't consistently
+        # re-exec the source afterwards — so a second edit-then-reload can
+        # silently keep running the old bytecode. For iterative dev, do a
+        # Stop/Run of the add-in in Fusion per change (clear
+        # addon/server/__pycache__ first). Fixing this properly means
+        # replacing Fusion's loader/module-name scheme — not worth it until
+        # add-in dev iteration actually hurts.
         from . import command_handler as ch_mod
         importlib.reload(ch_mod)
         self._handler = ch_mod.CommandHandler()
