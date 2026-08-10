@@ -66,6 +66,18 @@ _RULES: list[tuple[str, str, list[str]]] = [
         ],
     ),
     (
+        r"could not be created at the requested size|ASM_BL_UNFIN"
+        r"|(fillet|chamfer).*compute fail|compute fail.*(fillet|chamfer)",
+        "FILLET_COMPUTE_FAILED",
+        [
+            "The fillet/chamfer could not be computed at the requested size.",
+            "Reduce the radius/distance — it likely exceeds the adjacent edge "
+            "length or face width.",
+            "Select fewer edges (e.g. 'top'/'bottom'/'vertical' instead of "
+            "'all'), or apply it in several smaller operations.",
+        ],
+    ),
+    (
         r"boolean.*(empty|no[- ]?op|no result|failed)|subtract.*empty",
         "BOOLEAN_NO_OP",
         [

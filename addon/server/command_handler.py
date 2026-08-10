@@ -83,6 +83,7 @@ class CommandHandler:
             "boolean_operation",
             # primitives
             "create_box",
+            "create_box_parametric",
             "create_cylinder",
             "create_sphere",
             "create_torus",
@@ -1485,18 +1486,23 @@ class CommandHandler:
         export_mgr = self._design().exportManager
         occ = body.assemblyContext  # None if body is at root
 
-        # Validate geometry before export to avoid "invalid argument geometry"
-        try:
-            body.validate()
-        except Exception:
-            raise RuntimeError(
-                f"Body '{body_name}' has invalid geometry. "
-                "Repair the body before exporting STEP."
-            )
-
         if occ is None:
-            step_opts = export_mgr.createSTEPExportOptions(file_path, body)
-            export_mgr.execute(step_opts)
+            # Fusion's STEP exporter rejects a root-level BRepBody
+            # ("invalid argument geometry") — it only accepts a Component or
+            # Occurrence. Copy the body into a throwaway component, export
+            # that, then remove it.
+            root = self._root()
+            temp_occ = root.occurrences.addNewComponent(
+                adsk.core.Matrix3D.create()
+            )
+            try:
+                body.copyToComponent(temp_occ)
+                step_opts = export_mgr.createSTEPExportOptions(
+                    file_path, temp_occ.component
+                )
+                export_mgr.execute(step_opts)
+            finally:
+                temp_occ.deleteMe()
             return {"exported": True, "body": body_name, "file_path": file_path}
 
         # Body lives in a component occurrence: hide siblings so the
@@ -1850,6 +1856,7 @@ class CommandHandler:
 
     def delete_all(self):
         design = self._design()
+        # Clear parametric history first (features, sketches, ...).
         if hasattr(design, "timeline") and design.timeline.count > 0:
             tl = design.timeline
             for i in range(tl.count - 1, -1, -1):
@@ -1857,7 +1864,22 @@ class CommandHandler:
                     tl.item(i).deleteMe()
                 except Exception:
                     pass
-        return {"deleted": True}
+        # Non-parametric base bodies (e.g. create_box via TemporaryBRepManager)
+        # survive a timeline wipe — delete bodies and sketches directly.
+        root = self._root()
+        for b in list(root.bRepBodies):
+            try:
+                b.deleteMe()
+            except Exception:
+                pass
+        for s in list(root.sketches):
+            try:
+                s.deleteMe()
+            except Exception:
+                pass
+        remaining = root.bRepBodies.count
+        # Report the truth instead of an unconditional success.
+        return {"deleted": remaining == 0, "bodies_remaining": remaining}
 
     def undo(self):
         design = self._design()
@@ -1902,9 +1924,10 @@ class CommandHandler:
         root = self._root()
         temp_brep = adsk.fusion.TemporaryBRepManager.get()
 
-        # Box orientation matrix
+        # Box orientation matrix — centered on all three axes so center_z
+        # behaves like center_x/center_y (previously the base sat on the plane).
         orient = adsk.core.OrientedBoundingBox3D.create(
-            adsk.core.Point3D.create(center_x, center_y, center_z + height / 2),
+            adsk.core.Point3D.create(center_x, center_y, center_z),
             adsk.core.Vector3D.create(1, 0, 0),
             adsk.core.Vector3D.create(0, 1, 0),
             length,
@@ -1965,8 +1988,12 @@ class CommandHandler:
         text_pt = adsk.core.Point3D.create(0, 0, 0)
 
         def _set_dim(dim, value):
+            # Numeric values are cm (Fusion internal unit). Set them as an
+            # explicit-cm expression rather than .value — in a document whose
+            # default unit isn't cm, a bare .value is interpreted in the
+            # document unit (e.g. 4 -> "4 in"), silently scaling the box.
             if isinstance(value, (int, float)):
-                dim.parameter.value = float(value)
+                dim.parameter.expression = f"{float(value)} cm"
             else:
                 dim.parameter.expression = str(value)
 
@@ -1996,8 +2023,11 @@ class CommandHandler:
         ext_input = ext_feats.createInput(
             profile, adsk.fusion.FeatureOperations.NewBodyFeatureOperation
         )
+        # Numeric height is cm; pass it as an explicit-cm string so the
+        # document's default unit can't reinterpret it (createByReal proved
+        # unreliable here, yielding "4 mm" for 4).
         if isinstance(height, (int, float)):
-            h_vi = adsk.core.ValueInput.createByReal(float(height))
+            h_vi = adsk.core.ValueInput.createByString(f"{float(height)} cm")
         else:
             h_vi = adsk.core.ValueInput.createByString(str(height))
         ext_input.setDistanceExtent(False, h_vi)
@@ -2847,17 +2877,20 @@ class CommandHandler:
         generate_all: bool = False,
     ):
         cam = self._get_cam()
+        import time
 
         if generate_all:
             future = cam.generateAllToolpaths(False)
-            future.wait()
+            while not future.isGenerationCompleted:
+                time.sleep(0.5)
             return {"generated": True, "scope": "all"}
 
         if operation_name and setup_name:
             setup = self._find_setup(cam, setup_name)
             op = self._find_operation(setup, operation_name)
             future = cam.generateToolpath(op)
-            future.wait()
+            while not future.isGenerationCompleted:
+                time.sleep(0.5)
             return {
                 "generated": True,
                 "scope": "operation",
@@ -2870,7 +2903,8 @@ class CommandHandler:
             for i in range(setup.operations.count):
                 ops.add(setup.operations.item(i))
             future = cam.generateToolpath(ops)
-            future.wait()
+            while not future.isGenerationCompleted:
+                time.sleep(0.5)
             return {"generated": True, "scope": "setup", "setup": setup_name}
 
         raise RuntimeError("Provide setup_name, operation_name, or generate_all=true")
@@ -3020,7 +3054,14 @@ class CommandHandler:
                 exec(compile(tree, "<mcp>", "exec"), ns)
 
         output = buf.getvalue()
-        result = last_expr_value if last_expr_value is not None else output
+        # Prefer the final expression's value; otherwise a `result` variable
+        # the snippet assigned; otherwise captured stdout.
+        if last_expr_value is not None:
+            result = last_expr_value
+        elif ns.get("result") is not None:
+            result = ns["result"]
+        else:
+            result = output
 
         # Warn if design type changed during execution
         type_after = design.designType

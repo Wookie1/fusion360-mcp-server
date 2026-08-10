@@ -603,7 +603,8 @@ TOOLS: list[dict] = [
         "title": "Execute Code",
         "description": (
             "Run arbitrary Python in Fusion 360. "
-            "The last expression's value is returned (REPL-style). "
+            "The last expression's value is returned (REPL-style); "
+            "alternatively assign to a variable named `result`. "
             "Pre-defined names: app, ui, design, component, adsk, math."
         ),
         "inputSchema": {
@@ -1853,18 +1854,45 @@ TOOLS: list[dict] = [
         "name": "create_box",
         "title": "Create Box",
         "description": (
-            "Create a box primitive (non-parametric via TemporaryBRepManager)"
+            "Create a box primitive (non-parametric via TemporaryBRepManager). "
+            "All dimensions in cm (Fusion internal unit) — e.g. a 50 mm cube "
+            "is length=width=height=5. The box is centered on "
+            "(center_x, center_y, center_z)."
         ),
         "inputSchema": {
             "type": "object",
             "required": ["length", "width", "height"],
             "properties": {
-                "length": {"type": "number", "minimum": 0.001},
-                "width": {"type": "number", "minimum": 0.001},
-                "height": {"type": "number", "minimum": 0.001},
-                "center_x": {"type": "number", "default": 0},
-                "center_y": {"type": "number", "default": 0},
-                "center_z": {"type": "number", "default": 0},
+                "length": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Length along X (cm)",
+                },
+                "width": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Width along Y (cm)",
+                },
+                "height": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Height along Z (cm)",
+                },
+                "center_x": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Box center X (cm)",
+                },
+                "center_y": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Box center Y (cm)",
+                },
+                "center_z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Box center Z (cm)",
+                },
             },
         },
     },
@@ -1877,7 +1905,9 @@ TOOLS: list[dict] = [
             "length/width/height accept a number (cm, Fusion internal unit) "
             "or a string expression referencing User Parameters "
             "(e.g. 'boxL', '56 mm', 'outer - 2 * wall_t'). "
-            "Call create_parameter first to define named parameters."
+            "Call create_parameter first to define named parameters. "
+            "Placement differs from create_box: the box's near corner sits at "
+            "(origin_x, origin_y, origin_z), it is not centered."
         ),
         "inputSchema": {
             "type": "object",

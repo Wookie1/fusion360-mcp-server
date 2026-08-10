@@ -40,6 +40,7 @@ _MUTATION_MOCKS: frozenset[str] = frozenset(
         "move_body",
         "boolean_operation",
         "create_box",
+        "create_box_parametric",
         "create_cylinder",
         "create_sphere",
         "create_torus",
