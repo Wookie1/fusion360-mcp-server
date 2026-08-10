@@ -908,7 +908,7 @@ class CommandHandler:
         if direction == "symmetric":
             ext_input.setSymmetricExtent(dist, True)
         else:
-            ext_input.setDistanceExtent(direction == "negative", dist)
+            ext_input.setDistanceExtent(direction != "positive", dist)
 
         feat = ext_feats.add(ext_input)
         return {

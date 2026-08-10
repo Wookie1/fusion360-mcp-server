@@ -54,7 +54,11 @@ TOOLS: list[dict] = [
     {
         "name": "create_sketch",
         "title": "Create Sketch",
-        "description": "Create a new sketch on xy/yz/xz plane, optionally offset",
+        "description": (
+            "Create a new sketch on the xy (front, Z-up), yz (side, X-up), or "
+            "xz (top, Y-up) construction plane. All subsequent draw_* commands "
+            "use this sketch until a new one is created."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -62,10 +66,14 @@ TOOLS: list[dict] = [
                     "type": "string",
                     "enum": ["xy", "yz", "xz"],
                     "default": "xy",
+                    "description": (
+                        "Construction plane: xy (front, Z-up), "
+                        "yz (side, X-up), xz (top, Y-up)"
+                    ),
                 },
                 "z_offset": {
                     "type": "number",
-                    "description": "Offset distance from the plane (cm)",
+                    "description": "Offset distance from the plane origin (cm)",
                 },
             },
         },
@@ -73,48 +81,112 @@ TOOLS: list[dict] = [
     {
         "name": "draw_rectangle",
         "title": "Draw Rectangle",
-        "description": "Draw a rectangle in the most recent sketch",
+        "description": (
+            "Draw a rectangle in the most recent sketch. Width extends along "
+            "the sketch X-axis, height along the sketch Y-axis. All coords in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["width", "height"],
             "properties": {
-                "width": {"type": "number", "minimum": 0.001},
-                "height": {"type": "number", "minimum": 0.001},
-                "origin_x": {"type": "number", "default": 0},
-                "origin_y": {"type": "number", "default": 0},
-                "origin_z": {"type": "number", "default": 0},
+                "width": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Width along sketch X-axis (cm)",
+                },
+                "height": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Height along sketch Y-axis (cm)",
+                },
+                "origin_x": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "X coordinate of bottom-left corner (cm)",
+                },
+                "origin_y": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Y coordinate of bottom-left corner (cm)",
+                },
+                "origin_z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Z coordinate of bottom-left corner (cm)",
+                },
             },
         },
     },
     {
         "name": "draw_circle",
         "title": "Draw Circle",
-        "description": "Draw a circle in the most recent sketch",
+        "description": (
+            "Draw a circle in the most recent sketch. Center and radius in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["radius"],
             "properties": {
-                "radius": {"type": "number", "minimum": 0.001},
-                "center_x": {"type": "number", "default": 0},
-                "center_y": {"type": "number", "default": 0},
-                "center_z": {"type": "number", "default": 0},
+                "radius": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Circle radius (cm)",
+                },
+                "center_x": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Center X coordinate (cm)",
+                },
+                "center_y": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Center Y coordinate (cm)",
+                },
+                "center_z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Center Z coordinate (cm)",
+                },
             },
         },
     },
     {
         "name": "draw_line",
         "title": "Draw Line",
-        "description": "Draw a line in the most recent sketch",
+        "description": (
+            "Draw a straight line segment in the most recent sketch. "
+            "All coordinates in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["start_x", "start_y", "end_x", "end_y"],
             "properties": {
-                "start_x": {"type": "number"},
-                "start_y": {"type": "number"},
-                "start_z": {"type": "number", "default": 0},
-                "end_x": {"type": "number"},
-                "end_y": {"type": "number"},
-                "end_z": {"type": "number", "default": 0},
+                "start_x": {
+                    "type": "number",
+                    "description": "Start X coordinate (cm)",
+                },
+                "start_y": {
+                    "type": "number",
+                    "description": "Start Y coordinate (cm)",
+                },
+                "start_z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Start Z coordinate (cm)",
+                },
+                "end_x": {
+                    "type": "number",
+                    "description": "End X coordinate (cm)",
+                },
+                "end_y": {
+                    "type": "number",
+                    "description": "End Y coordinate (cm)",
+                },
+                "end_z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "End Z coordinate (cm)",
+                },
             },
         },
     },
@@ -122,22 +194,52 @@ TOOLS: list[dict] = [
     {
         "name": "extrude",
         "title": "Extrude",
-        "description": "Extrude a sketch profile",
+        "description": (
+            "Extrude a sketch profile from the most recent sketch. "
+            "Positive direction extrudes along the sketch plane's positive "
+            "normal (Z on xy, X on yz, Y on xz). Negative extrudes opposite. "
+            "Symmetric extrudes equally both ways. Height in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["height"],
             "properties": {
-                "height": {"type": "number"},
-                "profile_index": {"type": "integer", "default": 0, "minimum": 0},
+                "height": {
+                    "type": "number",
+                    "description": (
+                        "Extrusion distance (cm). Negative values reverse "
+                        "direction."
+                    ),
+                },
+                "profile_index": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": (
+                        "Index of the closed profile within the sketch "
+                        "(0-based). Call get_object_info on the sketch to "
+                        "see available profiles."
+                    ),
+                },
                 "operation": {
                     "type": "string",
                     "enum": ["new_body", "join", "cut", "intersect"],
                     "default": "new_body",
+                    "description": (
+                        "new_body creates a new body, join merges into "
+                        "existing bodies, cut removes material, intersect "
+                        "keeps only overlapping volume"
+                    ),
                 },
                 "direction": {
                     "type": "string",
                     "enum": ["positive", "negative", "symmetric"],
                     "default": "positive",
+                    "description": (
+                        "positive extrudes along the sketch plane's "
+                        "positive normal, negative extrudes opposite, "
+                        "symmetric extrudes equally both ways"
+                    ),
                 },
             },
         },
@@ -145,23 +247,69 @@ TOOLS: list[dict] = [
     {
         "name": "revolve",
         "title": "Revolve",
-        "description": "Revolve a sketch profile around an axis",
+        "description": (
+            "Revolve a sketch profile around an axis counter-clockwise "
+            "(right-hand rule). Default axis is X-axis. Angle in degrees."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["angle"],
             "properties": {
-                "angle": {"type": "number", "minimum": 0.1, "maximum": 360},
-                "profile_index": {"type": "integer", "default": 0},
-                "axis_origin_x": {"type": "number", "default": 0},
-                "axis_origin_y": {"type": "number", "default": 0},
-                "axis_origin_z": {"type": "number", "default": 0},
-                "axis_direction_x": {"type": "number", "default": 1},
-                "axis_direction_y": {"type": "number", "default": 0},
-                "axis_direction_z": {"type": "number", "default": 0},
+                "angle": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 360,
+                    "description": (
+                        "Revolve angle in degrees "
+                        "(counter-clockwise by right-hand rule)"
+                    ),
+                },
+                "profile_index": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": (
+                        "Index of the closed profile within "
+                        "the sketch (0-based)"
+                    ),
+                },
+                "axis_origin_x": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Axis origin X (cm)",
+                },
+                "axis_origin_y": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Axis origin Y (cm)",
+                },
+                "axis_origin_z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Axis origin Z (cm)",
+                },
+                "axis_direction_x": {
+                    "type": "number",
+                    "default": 1,
+                    "description": "Axis direction X (default 1=X-axis)",
+                },
+                "axis_direction_y": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Axis direction Y",
+                },
+                "axis_direction_z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Axis direction Z",
+                },
                 "operation": {
                     "type": "string",
                     "enum": ["new_body", "join", "cut", "intersect"],
                     "default": "new_body",
+                    "description": (
+                        "new_body creates a new body, join merges, "
+                        "cut removes, intersect keeps overlap"
+                    ),
                 },
             },
         },
@@ -169,18 +317,38 @@ TOOLS: list[dict] = [
     {
         "name": "fillet",
         "title": "Fillet Edges",
-        "description": "Round edges of a body",
+        "description": (
+            "Round edges of a body. edge_selection='all' rounds all edges, "
+            "'top'/'bottom' selects edges at the highest/lowest Z, "
+            "'vertical' selects edges parallel to Z. Radius in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["radius"],
             "properties": {
-                "radius": {"type": "number", "minimum": 0.001},
-                "body_name": {"type": "string", "description": "Body name (preferred)"},
-                "body_index": {"type": "integer", "default": 0},
+                "radius": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Fillet radius (cm)",
+                },
+                "body_name": {
+                    "type": "string",
+                    "description": "Body name (preferred over body_index)",
+                },
+                "body_index": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Body index (fallback if body_name not provided)",
+                },
                 "edge_selection": {
                     "type": "string",
                     "enum": ["all", "top", "bottom", "vertical"],
                     "default": "all",
+                    "description": (
+                        "all=every edge, top=edges at highest Z, "
+                        "bottom=edges at lowest Z, "
+                        "vertical=edges parallel to Z-axis"
+                    ),
                 },
             },
         },
@@ -188,18 +356,38 @@ TOOLS: list[dict] = [
     {
         "name": "chamfer",
         "title": "Chamfer Edges",
-        "description": "Chamfer edges of a body",
+        "description": (
+            "Chamfer edges of a body at 45° angle. Distance is the cut "
+            "length on each face. Same edge_selection options as fillet. "
+            "Distance in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["distance"],
             "properties": {
-                "distance": {"type": "number", "minimum": 0.001},
-                "body_name": {"type": "string"},
-                "body_index": {"type": "integer", "default": 0},
+                "distance": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Chamfer distance on each face (cm)",
+                },
+                "body_name": {
+                    "type": "string",
+                    "description": "Body name (preferred)",
+                },
+                "body_index": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Body index (fallback)",
+                },
                 "edge_selection": {
                     "type": "string",
                     "enum": ["all", "top", "bottom", "vertical"],
                     "default": "all",
+                    "description": (
+                        "all=every edge, top=edges at highest Z, "
+                        "bottom=edges at lowest Z, "
+                        "vertical=edges parallel to Z-axis"
+                    ),
                 },
             },
         },
@@ -207,18 +395,37 @@ TOOLS: list[dict] = [
     {
         "name": "shell",
         "title": "Shell Body",
-        "description": "Hollow out a body by removing a face",
+        "description": (
+            "Hollow out a body by removing a face, leaving uniform wall "
+            "thickness. face_selection='top' removes the face at the highest Z, "
+            "'bottom' at lowest Z. Thickness in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["thickness"],
             "properties": {
-                "thickness": {"type": "number", "minimum": 0.001},
-                "body_name": {"type": "string"},
-                "body_index": {"type": "integer", "default": 0},
+                "thickness": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Wall thickness (cm)",
+                },
+                "body_name": {
+                    "type": "string",
+                    "description": "Body name (preferred)",
+                },
+                "body_index": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Body index (fallback)",
+                },
                 "face_selection": {
                     "type": "string",
                     "enum": ["top", "bottom"],
                     "default": "top",
+                    "description": (
+                        "top=remove face at highest Z, "
+                        "bottom=remove face at lowest Z"
+                    ),
                 },
             },
         },
@@ -226,7 +433,10 @@ TOOLS: list[dict] = [
     {
         "name": "mirror",
         "title": "Mirror Body",
-        "description": "Mirror a body across a construction plane",
+        "description": (
+            "Mirror a body across a construction plane (xy/yz/xz) creating "
+            "a new body. The original body is preserved."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["mirror_plane"],
@@ -234,9 +444,20 @@ TOOLS: list[dict] = [
                 "mirror_plane": {
                     "type": "string",
                     "enum": ["xy", "yz", "xz"],
+                    "description": (
+                        "Plane to mirror across: xy (flips Z), "
+                        "yz (flips X), xz (flips Y)"
+                    ),
                 },
-                "body_name": {"type": "string"},
-                "body_index": {"type": "integer", "default": 0},
+                "body_name": {
+                    "type": "string",
+                    "description": "Body name (preferred)",
+                },
+                "body_index": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Body index (fallback)",
+                },
             },
         },
     },
@@ -244,7 +465,10 @@ TOOLS: list[dict] = [
     {
         "name": "rename_body",
         "title": "Rename Body",
-        "description": "Rename a body (searches root and all components)",
+        "description": (
+            "Rename a body. Searches root component and all sub-components. "
+            "Call get_scene_info first to see current body names."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["body_name", "new_name"],
@@ -263,27 +487,52 @@ TOOLS: list[dict] = [
     {
         "name": "move_body",
         "title": "Move Body",
-        "description": "Translate a named body by (x, y, z)",
+        "description": (
+            "Translate a named body by (x, y, z) in cm relative to its "
+            "current position. Positive X=right, positive Y=up, "
+            "positive Z=forward (toward viewer on xy plane)."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["body_name"],
             "properties": {
-                "body_name": {"type": "string"},
-                "x": {"type": "number", "default": 0},
-                "y": {"type": "number", "default": 0},
-                "z": {"type": "number", "default": 0},
+                "body_name": {
+                    "type": "string",
+                    "description": "Body name to move",
+                },
+                "x": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Translation along X-axis (cm)",
+                },
+                "y": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Translation along Y-axis (cm)",
+                },
+                "z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Translation along Z-axis (cm)",
+                },
             },
         },
     },
     {
         "name": "export_stl",
         "title": "Export STL",
-        "description": "Export a named body as an STL file",
+        "description": (
+            "Export a named body as an STL mesh file. "
+            "Default output is ~/Desktop/<name>.stl."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["body_name"],
             "properties": {
-                "body_name": {"type": "string"},
+                "body_name": {
+                    "type": "string",
+                    "description": "Body name to export",
+                },
                 "file_path": {
                     "type": "string",
                     "description": "Destination path (default: ~/Desktop/<name>.stl)",
@@ -294,17 +543,38 @@ TOOLS: list[dict] = [
     {
         "name": "boolean_operation",
         "title": "Boolean Operation",
-        "description": "Combine two named bodies (join/cut/intersect)",
+        "description": (
+            "Combine two named bodies. 'join' merges tool into target "
+            "(target absorbs tool). 'cut' removes tool volume from target. "
+            "'intersect' keeps only overlapping volume. "
+            "Always verify names with get_scene_info first."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["target_body", "tool_body"],
             "properties": {
-                "target_body": {"type": "string"},
-                "tool_body": {"type": "string"},
+                "target_body": {
+                    "type": "string",
+                    "description": (
+                        "Primary body (absorbs on join, "
+                        "loses material on cut)"
+                    ),
+                },
+                "tool_body": {
+                    "type": "string",
+                    "description": (
+                        "Secondary body (merged into target on join, "
+                        "acts as cutter on cut)"
+                    ),
+                },
                 "operation": {
                     "type": "string",
                     "enum": ["join", "cut", "intersect"],
                     "default": "join",
+                    "description": (
+                        "join=merge bodies, cut=remove tool from target, "
+                        "intersect=keep only overlap"
+                    ),
                 },
             },
         },
@@ -348,21 +618,47 @@ TOOLS: list[dict] = [
     {
         "name": "sweep",
         "title": "Sweep",
-        "description": "Sweep a sketch profile along a path (sketch curve)",
+        "description": (
+            "Sweep a sketch profile along a path curve in another sketch. "
+            "profile_index selects the closed profile in the most recent sketch. "
+            "path_sketch_name names the sketch containing the path curve."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["profile_index", "path_sketch_name"],
             "properties": {
-                "profile_index": {"type": "integer", "default": 0, "minimum": 0},
+                "profile_index": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": (
+                        "Index of the closed profile in the most recent "
+                        "sketch (0-based)"
+                    ),
+                },
                 "path_sketch_name": {
                     "type": "string",
-                    "description": "Name of the sketch containing the sweep path",
+                    "description": (
+                        "Name of the sketch containing the sweep path curve"
+                    ),
                 },
-                "path_curve_index": {"type": "integer", "default": 0, "minimum": 0},
+                "path_curve_index": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": (
+                        "Index of the path curve within path_sketch_name "
+                        "(0-based)"
+                    ),
+                },
                 "operation": {
                     "type": "string",
                     "enum": ["new_body", "join", "cut", "intersect"],
                     "default": "new_body",
+                    "description": (
+                        "new_body creates a new body, join merges, "
+                        "cut removes, intersect keeps overlap"
+                    ),
                 },
             },
         },
@@ -370,7 +666,11 @@ TOOLS: list[dict] = [
     {
         "name": "loft",
         "title": "Loft",
-        "description": "Loft between two or more sketch profiles",
+        "description": (
+            "Loft between two or more sketch profiles to create a smooth "
+            "transitional body. Sketches should be on parallel planes. "
+            "First profile of each sketch is used."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["profile_sketch_names"],
@@ -380,14 +680,18 @@ TOOLS: list[dict] = [
                     "items": {"type": "string"},
                     "minItems": 2,
                     "description": (
-                        "Ordered list of sketch names whose "
-                        "first profile will be lofted"
+                        "Ordered list of sketch names whose first profile "
+                        "will be lofted"
                     ),
                 },
                 "operation": {
                     "type": "string",
                     "enum": ["new_body", "join", "cut", "intersect"],
                     "default": "new_body",
+                    "description": (
+                        "new_body creates a new body, join merges, "
+                        "cut removes, intersect keeps overlap"
+                    ),
                 },
             },
         },
@@ -395,20 +699,42 @@ TOOLS: list[dict] = [
     {
         "name": "create_polygon",
         "title": "Create Polygon",
-        "description": "Draw a regular polygon in the most recent sketch",
+        "description": (
+            "Draw a regular polygon in the most recent sketch. "
+            "First vertex points along the positive X-axis. All coords in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["sides", "radius"],
             "properties": {
-                "sides": {"type": "integer", "minimum": 3, "maximum": 64},
+                "sides": {
+                    "type": "integer",
+                    "minimum": 3,
+                    "maximum": 64,
+                    "description": (
+                        "Number of sides (3=triangle, 4=square, 6=hexagon)"
+                    ),
+                },
                 "radius": {
                     "type": "number",
                     "minimum": 0.001,
-                    "description": "Circumradius (cm)",
+                    "description": "Circumradius from center to vertices (cm)",
                 },
-                "center_x": {"type": "number", "default": 0},
-                "center_y": {"type": "number", "default": 0},
-                "center_z": {"type": "number", "default": 0},
+                "center_x": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Center X coordinate (cm)",
+                },
+                "center_y": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Center Y coordinate (cm)",
+                },
+                "center_z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Center Z coordinate (cm)",
+                },
             },
         },
     },
@@ -416,21 +742,46 @@ TOOLS: list[dict] = [
         "name": "draw_arc",
         "title": "Draw Arc",
         "description": (
-            "Draw an arc in the most recent sketch (center + start point + sweep angle)"
+            "Draw an arc in the most recent sketch defined by center, start "
+            "point, and sweep angle. Positive angles sweep counter-clockwise, "
+            "negative clockwise. All coordinates in cm."
         ),
         "inputSchema": {
             "type": "object",
             "required": ["center_x", "center_y", "start_x", "start_y", "sweep_angle"],
             "properties": {
-                "center_x": {"type": "number"},
-                "center_y": {"type": "number"},
-                "center_z": {"type": "number", "default": 0},
-                "start_x": {"type": "number"},
-                "start_y": {"type": "number"},
-                "start_z": {"type": "number", "default": 0},
+                "center_x": {
+                    "type": "number",
+                    "description": "Arc center X (cm)",
+                },
+                "center_y": {
+                    "type": "number",
+                    "description": "Arc center Y (cm)",
+                },
+                "center_z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Arc center Z (cm)",
+                },
+                "start_x": {
+                    "type": "number",
+                    "description": "Arc start point X (cm)",
+                },
+                "start_y": {
+                    "type": "number",
+                    "description": "Arc start point Y (cm)",
+                },
+                "start_z": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Arc start point Z (cm)",
+                },
                 "sweep_angle": {
                     "type": "number",
-                    "description": "Sweep angle in degrees (positive = CCW)",
+                    "description": (
+                        "Sweep angle in degrees: positive=counter-clockwise, "
+                        "negative=clockwise"
+                    ),
                     "minimum": -360,
                     "maximum": 360,
                 },
@@ -440,45 +791,92 @@ TOOLS: list[dict] = [
     {
         "name": "create_hole",
         "title": "Create Hole",
-        "description": "Create a hole feature on a body face",
+        "description": (
+            "Create a hole on a body face at the specified center coordinates. "
+            "face_selection='top' drills from the highest Z face, 'bottom' from "
+            "lowest Z. center_x/center_y define the hole center. Diameter and depth in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["diameter", "depth"],
             "properties": {
-                "diameter": {"type": "number", "minimum": 0.001},
-                "depth": {"type": "number", "minimum": 0.001},
-                "body_name": {"type": "string"},
-                "body_index": {"type": "integer", "default": 0},
+                "diameter": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Hole diameter (cm)",
+                },
+                "depth": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "description": "Hole depth (cm)",
+                },
+                "body_name": {
+                    "type": "string",
+                    "description": "Body name (preferred)",
+                },
+                "body_index": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Body index (fallback)",
+                },
                 "face_selection": {
                     "type": "string",
                     "enum": ["top", "bottom"],
                     "default": "top",
+                    "description": (
+                        "top=drill from highest Z face, "
+                        "bottom=drill from lowest Z face"
+                    ),
                 },
-                "center_x": {"type": "number", "default": 0},
-                "center_y": {"type": "number", "default": 0},
+                "center_x": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Hole center X (cm)",
+                },
+                "center_y": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Hole center Y (cm)",
+                },
             },
         },
     },
     {
         "name": "rectangular_pattern",
         "title": "Rectangular Pattern",
-        "description": "Pattern a body in rows and columns",
+        "description": (
+            "Pattern a body in a grid. x_count includes the original body. "
+            "x_spacing is distance between copies along X. Spacing in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["body_name"],
             "properties": {
-                "body_name": {"type": "string"},
-                "x_count": {"type": "integer", "minimum": 1, "default": 1},
+                "body_name": {
+                    "type": "string",
+                    "description": "Body to pattern",
+                },
+                "x_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1,
+                    "description": "Number of columns including original",
+                },
                 "x_spacing": {
                     "type": "number",
                     "default": 1.0,
-                    "description": "Spacing between columns (cm)",
+                    "description": "Distance between columns (cm)",
                 },
-                "y_count": {"type": "integer", "minimum": 1, "default": 1},
+                "y_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1,
+                    "description": "Number of rows including original",
+                },
                 "y_spacing": {
                     "type": "number",
                     "default": 1.0,
-                    "description": "Spacing between rows (cm)",
+                    "description": "Distance between rows (cm)",
                 },
             },
         },
@@ -486,24 +884,38 @@ TOOLS: list[dict] = [
     {
         "name": "circular_pattern",
         "title": "Circular Pattern",
-        "description": "Pattern a body around an axis",
+        "description": (
+            "Pattern a body in a circle around an axis. count includes the "
+            "original. total_angle distributes copies evenly (default 360°)."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["body_name", "count"],
             "properties": {
-                "body_name": {"type": "string"},
-                "count": {"type": "integer", "minimum": 2},
+                "body_name": {
+                    "type": "string",
+                    "description": "Body to pattern",
+                },
+                "count": {
+                    "type": "integer",
+                    "minimum": 2,
+                    "description": "Total instances including original",
+                },
                 "axis": {
                     "type": "string",
                     "enum": ["x", "y", "z"],
                     "default": "z",
+                    "description": "Rotation axis: x=X-axis, y=Y-axis, z=Z-axis",
                 },
                 "total_angle": {
                     "type": "number",
                     "default": 360,
                     "minimum": 1,
                     "maximum": 360,
-                    "description": "Total angle to distribute copies over (degrees)",
+                    "description": (
+                        "Total angle to distribute copies over (degrees). "
+                        "Default 360=full circle"
+                    ),
                 },
             },
         },
@@ -528,13 +940,23 @@ TOOLS: list[dict] = [
     {
         "name": "add_joint",
         "title": "Add Joint",
-        "description": "Add a joint between two components",
+        "description": (
+            "Add a joint between two components to constrain their relative "
+            "motion. rigid=fuse components, revolute=hinge, slider=linear slide, "
+            "cylindrical=slide+rotate, ball=spherical pivot."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["component_one", "component_two"],
             "properties": {
-                "component_one": {"type": "string"},
-                "component_two": {"type": "string"},
+                "component_one": {
+                    "type": "string",
+                    "description": "First component name",
+                },
+                "component_two": {
+                    "type": "string",
+                    "description": "Second component name",
+                },
                 "joint_type": {
                     "type": "string",
                     "enum": [
@@ -564,12 +986,18 @@ TOOLS: list[dict] = [
     {
         "name": "export_step",
         "title": "Export STEP",
-        "description": "Export a body or component as a STEP file",
+        "description": (
+            "Export a named body or component as a STEP (.step) CAD file. "
+            "Default output is ~/Desktop/<name>.step."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["body_name"],
             "properties": {
-                "body_name": {"type": "string"},
+                "body_name": {
+                    "type": "string",
+                    "description": "Body or component name to export",
+                },
                 "file_path": {
                     "type": "string",
                     "description": "Destination path (default: ~/Desktop/<name>.step)",
@@ -777,8 +1205,9 @@ TOOLS: list[dict] = [
         "name": "add_constraint",
         "title": "Add Sketch Constraint",
         "description": (
-            "Add a geometric constraint in the active sketch. "
-            "Entities are referenced by index within the sketch."
+            "Add a geometric constraint in the active sketch. Entities are "
+            "referenced by 0-based index in creation order. Call get_object_info "
+            "on the sketch to see curve indices before constraining."
         ),
         "inputSchema": {
             "type": "object",
@@ -801,16 +1230,27 @@ TOOLS: list[dict] = [
                         "collinear",
                         "smooth",
                     ],
+                    "description": (
+                        "coincident=points touch, parallel=entities parallel, "
+                        "perpendicular=90 degrees, tangent=smooth contact, "
+                        "equal=same length/radius, fix=lock in place, "
+                        "midpoint=center on entity, concentric=share center, "
+                        "horizontal/vertical=align axis, symmetry=mirror across "
+                        "line, collinear=on same line, smooth=C1 continuity"
+                    ),
                 },
                 "entity_one": {
                     "type": "integer",
-                    "description": "Index of the first sketch entity",
+                    "description": (
+                        "0-based index of the first sketch entity "
+                        "(see get_object_info for indices)"
+                    ),
                     "minimum": 0,
                 },
                 "entity_two": {
                     "type": "integer",
                     "description": (
-                        "Index of the second sketch entity "
+                        "0-based index of the second sketch entity "
                         "(not needed for fix/horizontal/vertical)"
                     ),
                     "minimum": 0,
@@ -818,7 +1258,8 @@ TOOLS: list[dict] = [
                 "symmetry_line": {
                     "type": "integer",
                     "description": (
-                        "Index of the symmetry line (only for symmetry constraint)"
+                        "0-based index of the symmetry line "
+                        "(only for symmetry constraint)"
                     ),
                     "minimum": 0,
                 },
@@ -834,8 +1275,9 @@ TOOLS: list[dict] = [
         "name": "add_dimension",
         "title": "Add Sketch Dimension",
         "description": (
-            "Add a driving dimension to constrain sketch geometry. "
-            "Value is in cm for distances, degrees for angles."
+            "Add a driving dimension to constrain sketch geometry. Value in cm "
+            "for distances/radii/diameters, degrees for angles. Entities are "
+            "0-based indices in creation order — call get_object_info first."
         ),
         "inputSchema": {
             "type": "object",
@@ -851,20 +1293,25 @@ TOOLS: list[dict] = [
                         "radial",
                         "diameter",
                     ],
+                    "description": (
+                        "distance=point-to-point, horizontal/vertical=projected "
+                        "distance, angular=angle between entities, "
+                        "radial=circle radius, diameter=circle diameter"
+                    ),
                 },
                 "value": {
                     "type": "number",
-                    "description": "Dimension value (cm or degrees)",
+                    "description": "Dimension value (cm for distances, degrees for angles)",
                 },
                 "entity_one": {
                     "type": "integer",
-                    "description": "Index of first entity (point or curve)",
+                    "description": "0-based index of first entity (point or curve)",
                     "minimum": 0,
                 },
                 "entity_two": {
                     "type": "integer",
                     "description": (
-                        "Index of second entity "
+                        "0-based index of second entity "
                         "(for distance/angular; not for radial/diameter)"
                     ),
                     "minimum": 0,
@@ -880,7 +1327,12 @@ TOOLS: list[dict] = [
     {
         "name": "create_construction_plane",
         "title": "Create Construction Plane",
-        "description": "Create a construction plane for sketching",
+        "description": (
+            "Create a construction plane for sketching. Each method requires "
+            "different parameters: 'offset' needs plane+offset (cm), "
+            "'angle' needs plane+angle(deg)+edge_name, 'midplane' needs "
+            "plane_one+plane_two, 'three_points' needs three [x,y,z] points."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["method"],
@@ -894,15 +1346,22 @@ TOOLS: list[dict] = [
                         "three_points",
                         "tangent",
                     ],
+                    "description": (
+                        "offset=parallel plane at distance, "
+                        "angle=rotated around edge, "
+                        "midplane=equidistant between two planes, "
+                        "three_points=through three points, "
+                        "tangent=angled from face"
+                    ),
                 },
                 "plane": {
                     "type": "string",
                     "enum": ["xy", "yz", "xz"],
-                    "description": ("Reference plane (for offset/angle)"),
+                    "description": "Reference plane for offset/angle methods",
                 },
                 "offset": {
                     "type": "number",
-                    "description": "Offset distance in cm (for offset)",
+                    "description": "Offset distance in cm (for offset method)",
                 },
                 "angle": {
                     "type": "number",
@@ -910,31 +1369,34 @@ TOOLS: list[dict] = [
                 },
                 "edge_name": {
                     "type": "string",
-                    "description": ("Edge or axis to rotate around (for angle method)"),
+                    "description": (
+                        "Edge or axis name to rotate around "
+                        "(for angle method)"
+                    ),
                 },
                 "plane_one": {
                     "type": "string",
                     "enum": ["xy", "yz", "xz"],
-                    "description": "First plane (for midplane)",
+                    "description": "First reference plane (for midplane method)",
                 },
                 "plane_two": {
                     "type": "string",
                     "enum": ["xy", "yz", "xz"],
-                    "description": "Second plane (for midplane)",
+                    "description": "Second reference plane (for midplane method)",
                 },
                 "point_one": {
                     "type": "array",
                     "items": {"type": "number"},
                     "minItems": 3,
                     "maxItems": 3,
-                    "description": "[x,y,z] first point",
+                    "description": "[x,y,z] first point in cm (for three_points)",
                 },
                 "point_two": {
                     "type": "array",
                     "items": {"type": "number"},
                     "minItems": 3,
                     "maxItems": 3,
-                    "description": "[x,y,z] second point",
+                    "description": "[x,y,z] second point in cm (for three_points)",
                 },
                 "point_three": {
                     "type": "array",
@@ -949,7 +1411,11 @@ TOOLS: list[dict] = [
     {
         "name": "create_construction_axis",
         "title": "Create Construction Axis",
-        "description": "Create a construction axis",
+        "description": (
+            "Create a construction axis. Methods: 'two_points' through two "
+            "[x,y,z] points, 'intersection' of two planes, 'edge' uses an "
+            "existing body edge. All coordinates in cm."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["method"],
@@ -962,36 +1428,49 @@ TOOLS: list[dict] = [
                         "edge",
                         "perpendicular_at_point",
                     ],
+                    "description": (
+                        "two_points=through two points, "
+                        "intersection=plane intersection, "
+                        "edge=existing edge, "
+                        "perpendicular_at_point=normal through point"
+                    ),
                 },
                 "point_one": {
                     "type": "array",
                     "items": {"type": "number"},
                     "minItems": 3,
                     "maxItems": 3,
+                    "description": (
+                        "[x,y,z] first point in cm "
+                        "(for two_points/perpendicular_at_point)"
+                    ),
                 },
                 "point_two": {
                     "type": "array",
                     "items": {"type": "number"},
                     "minItems": 3,
                     "maxItems": 3,
+                    "description": "[x,y,z] second point in cm (for two_points)",
                 },
                 "plane_one": {
                     "type": "string",
                     "enum": ["xy", "yz", "xz"],
-                    "description": ("First plane (for intersection)"),
+                    "description": "First plane (for intersection method)",
                 },
                 "plane_two": {
                     "type": "string",
                     "enum": ["xy", "yz", "xz"],
-                    "description": ("Second plane (for intersection)"),
+                    "description": "Second plane (for intersection method)",
                 },
                 "body_name": {
                     "type": "string",
-                    "description": "Body name (for edge method)",
+                    "description": "Body name containing the edge (for edge method)",
                 },
                 "edge_index": {
                     "type": "integer",
-                    "description": "Edge index on the body",
+                    "description": (
+                        "0-based edge index on the body (for edge method)"
+                    ),
                     "minimum": 0,
                 },
             },
@@ -1002,9 +1481,10 @@ TOOLS: list[dict] = [
         "name": "draw_spline",
         "title": "Draw Spline",
         "description": (
-            "Draw a spline in the most recent sketch. "
-            "Use fit_points for a curve through points, or "
-            "control_points for a control-polygon spline."
+            "Draw a spline in the most recent sketch. 'fit_points' creates "
+            "a curve passing through all given points. 'control_points' "
+            "creates a Bézier-like spline guided by control points. "
+            "Points are [x,y] or [x,y,z] in cm."
         ),
         "inputSchema": {
             "type": "object",
@@ -1013,6 +1493,10 @@ TOOLS: list[dict] = [
                 "spline_type": {
                     "type": "string",
                     "enum": ["fit_points", "control_points"],
+                    "description": (
+                        "fit_points=curve passes through all points, "
+                        "control_points=Bézier-like guided by control polygon"
+                    ),
                 },
                 "points": {
                     "type": "array",
@@ -1023,13 +1507,16 @@ TOOLS: list[dict] = [
                         "maxItems": 3,
                     },
                     "minItems": 2,
-                    "description": ("Array of [x,y] or [x,y,z] points"),
+                    "description": "Array of [x,y] or [x,y,z] coordinates in cm",
                 },
                 "degree": {
                     "type": "integer",
                     "enum": [3, 5],
                     "default": 3,
-                    "description": ("Spline degree (only for control_points, 3 or 5)"),
+                    "description": (
+                        "Spline degree (only for control_points: "
+                        "3=cubic, 5=fifth-order)"
+                    ),
                 },
             },
         },
@@ -1039,8 +1526,9 @@ TOOLS: list[dict] = [
         "name": "offset_curve",
         "title": "Offset Curve",
         "description": (
-            "Offset connected sketch curves by a distance. "
-            "Direction is determined by the direction_point."
+            "Offset connected sketch curves by a distance in the direction "
+            "specified by (direction_x, direction_y). direction_x=1, "
+            "direction_y=0 offsets to the right (positive X). All distances in cm."
         ),
         "inputSchema": {
             "type": "object",
@@ -1049,7 +1537,7 @@ TOOLS: list[dict] = [
                 "curve_index": {
                     "type": "integer",
                     "minimum": 0,
-                    "description": ("Index of a curve in the connected loop"),
+                    "description": "0-based index of a curve in the connected loop",
                 },
                 "offset_distance": {
                     "type": "number",
@@ -1059,16 +1547,16 @@ TOOLS: list[dict] = [
                 "direction_x": {
                     "type": "number",
                     "default": 1,
-                    "description": "X of direction point",
+                    "description": "X component of offset direction (default 1=right)",
                 },
                 "direction_y": {
                     "type": "number",
                     "default": 0,
-                    "description": "Y of direction point",
+                    "description": "Y component of offset direction (default 0)",
                 },
                 "sketch_name": {
                     "type": "string",
-                    "description": ("Sketch name (default: most recent)"),
+                    "description": "Sketch name (default: most recent)",
                 },
             },
         },
@@ -1077,8 +1565,8 @@ TOOLS: list[dict] = [
         "name": "trim_curve",
         "title": "Trim Curve",
         "description": (
-            "Trim a sketch curve at its intersections. "
-            "The segment nearest to the given point is removed."
+            "Trim a sketch curve at its intersections, removing the segment "
+            "nearest to the given (point_x, point_y). curve_index is 0-based."
         ),
         "inputSchema": {
             "type": "object",
@@ -1087,17 +1575,20 @@ TOOLS: list[dict] = [
                 "curve_index": {
                     "type": "integer",
                     "minimum": 0,
-                    "description": "Index of the curve to trim",
+                    "description": "0-based index of the curve to trim",
                 },
                 "point_x": {
                     "type": "number",
-                    "description": ("X near the segment to remove"),
+                    "description": "X coordinate near the segment to remove (cm)",
                 },
                 "point_y": {
                     "type": "number",
-                    "description": ("Y near the segment to remove"),
+                    "description": "Y coordinate near the segment to remove (cm)",
                 },
-                "sketch_name": {"type": "string"},
+                "sketch_name": {
+                    "type": "string",
+                    "description": "Sketch name (default: most recent)",
+                },
             },
         },
     },
@@ -1105,8 +1596,8 @@ TOOLS: list[dict] = [
         "name": "extend_curve",
         "title": "Extend Curve",
         "description": (
-            "Extend a sketch curve to the nearest intersection. "
-            "The end nearest to the given point is extended."
+            "Extend a sketch curve to the nearest intersection. The end "
+            "nearest to (point_x, point_y) is extended. curve_index is 0-based."
         ),
         "inputSchema": {
             "type": "object",
@@ -1115,17 +1606,20 @@ TOOLS: list[dict] = [
                 "curve_index": {
                     "type": "integer",
                     "minimum": 0,
-                    "description": "Index of the curve to extend",
+                    "description": "0-based index of the curve to extend",
                 },
                 "point_x": {
                     "type": "number",
-                    "description": "X near the end to extend",
+                    "description": "X coordinate near the end to extend (cm)",
                 },
                 "point_y": {
                     "type": "number",
-                    "description": "Y near the end to extend",
+                    "description": "Y coordinate near the end to extend (cm)",
                 },
-                "sketch_name": {"type": "string"},
+                "sketch_name": {
+                    "type": "string",
+                    "description": "Sketch name (default: most recent)",
+                },
             },
         },
     },
