@@ -1976,7 +1976,26 @@ class CommandHandler:
         sketch = comp.sketches.add(sketch_plane)
 
         def _initial(val):
-            return float(val) if isinstance(val, (int, float)) else 1.0
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return 1.0
+
+        def _cm_expr(value):
+            # A number, or a bare numeric string like "4" (the MCP layer may
+            # stringify numbers), is cm — the Fusion internal unit. Anything
+            # else ("56 mm", "boxL", "outer - 2*t") is a Fusion expression and
+            # is passed through unchanged. Without the explicit "cm", a
+            # unitless value is read in the document's default unit (e.g. a
+            # doc set to inches turns 4 into "4 in"), silently scaling the box.
+            if isinstance(value, (int, float)):
+                return f"{float(value)} cm"
+            s = str(value).strip()
+            try:
+                float(s)
+                return f"{s} cm"
+            except ValueError:
+                return s
 
         p1 = adsk.core.Point3D.create(origin_x, origin_y, 0)
         p2 = adsk.core.Point3D.create(
@@ -1988,14 +2007,7 @@ class CommandHandler:
         text_pt = adsk.core.Point3D.create(0, 0, 0)
 
         def _set_dim(dim, value):
-            # Numeric values are cm (Fusion internal unit). Set them as an
-            # explicit-cm expression rather than .value — in a document whose
-            # default unit isn't cm, a bare .value is interpreted in the
-            # document unit (e.g. 4 -> "4 in"), silently scaling the box.
-            if isinstance(value, (int, float)):
-                dim.parameter.expression = f"{float(value)} cm"
-            else:
-                dim.parameter.expression = str(value)
+            dim.parameter.expression = _cm_expr(value)
 
         bottom = rect.item(0)
         length_dim = dims.addDistanceDimension(
@@ -2023,13 +2035,9 @@ class CommandHandler:
         ext_input = ext_feats.createInput(
             profile, adsk.fusion.FeatureOperations.NewBodyFeatureOperation
         )
-        # Numeric height is cm; pass it as an explicit-cm string so the
-        # document's default unit can't reinterpret it (createByReal proved
-        # unreliable here, yielding "4 mm" for 4).
-        if isinstance(height, (int, float)):
-            h_vi = adsk.core.ValueInput.createByString(f"{float(height)} cm")
-        else:
-            h_vi = adsk.core.ValueInput.createByString(str(height))
+        # Height uses the same cm-normalization so the document's default unit
+        # can't reinterpret a unitless value.
+        h_vi = adsk.core.ValueInput.createByString(_cm_expr(height))
         ext_input.setDistanceExtent(False, h_vi)
         feat = ext_feats.add(ext_input)
 

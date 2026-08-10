@@ -795,7 +795,8 @@ TOOLS: list[dict] = [
         "description": (
             "Create a hole on a body face at the specified center coordinates. "
             "face_selection='top' drills from the highest Z face, 'bottom' from "
-            "lowest Z. center_x/center_y define the hole center. Diameter and depth in cm."
+            "lowest Z. center_x/center_y define the hole center. "
+            "Diameter and depth in cm."
         ),
         "inputSchema": {
             "type": "object",
@@ -1302,7 +1303,9 @@ TOOLS: list[dict] = [
                 },
                 "value": {
                     "type": "number",
-                    "description": "Dimension value (cm for distances, degrees for angles)",
+                    "description": (
+                        "Dimension value (cm for distances, degrees for angles)"
+                    ),
                 },
                 "entity_one": {
                     "type": "integer",
