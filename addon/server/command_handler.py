@@ -714,8 +714,23 @@ class CommandHandler:
         constraints = sketch.geometricConstraints
         curves = list(sketch.sketchCurves)
 
-        e1 = curves[entity_one] if entity_one is not None else None
-        e2 = curves[entity_two] if entity_two is not None else None
+        if not curves and (entity_one is not None or entity_two is not None):
+            raise RuntimeError(
+                "Sketch has no curves. Create geometry before adding constraints."
+            )
+
+        def _get_curve(idx, label="entity"):
+            if idx is None:
+                return None
+            if idx < 0 or idx >= len(curves):
+                raise RuntimeError(
+                    f"Invalid {label} index {idx}. "
+                    f"Sketch has {len(curves)} curves (indices 0–{len(curves)-1})."
+                )
+            return curves[idx]
+
+        e1 = _get_curve(entity_one, "entity_one")
+        e2 = _get_curve(entity_two, "entity_two")
 
         constraint_map = {
             "coincident": lambda: constraints.addCoincident(e1, e2),
@@ -755,8 +770,23 @@ class CommandHandler:
         dims = sketch.sketchDimensions
         curves = list(sketch.sketchCurves)
 
-        e1 = curves[entity_one] if entity_one is not None else None
-        e2 = curves[entity_two] if entity_two is not None else None
+        if not curves and (entity_one is not None or entity_two is not None):
+            raise RuntimeError(
+                "Sketch has no curves. Create geometry before adding dimensions."
+            )
+
+        def _get_curve(idx, label="entity"):
+            if idx is None:
+                return None
+            if idx < 0 or idx >= len(curves):
+                raise RuntimeError(
+                    f"Invalid {label} index {idx}. "
+                    f"Sketch has {len(curves)} curves (indices 0–{len(curves)-1})."
+                )
+            return curves[idx]
+
+        e1 = _get_curve(entity_one, "entity_one")
+        e2 = _get_curve(entity_two, "entity_two")
         text_pt = adsk.core.Point3D.create(0, 0, 0)
 
         if dimension_type == "distance":
@@ -1243,8 +1273,8 @@ class CommandHandler:
             faces,
             self._construction_plane(pull_direction_plane),
             adsk.core.ValueInput.createByString(f"{angle} deg"),
-            is_tangent_chain,
         )
+        inp.isTangentChain = is_tangent_chain
         feat = drafts.add(inp)
         return {"feature_name": feat.name, "angle": angle}
 
@@ -1454,6 +1484,15 @@ class CommandHandler:
 
         export_mgr = self._design().exportManager
         occ = body.assemblyContext  # None if body is at root
+
+        # Validate geometry before export to avoid "invalid argument geometry"
+        try:
+            body.validate()
+        except Exception:
+            raise RuntimeError(
+                f"Body '{body_name}' has invalid geometry. "
+                "Repair the body before exporting STEP."
+            )
 
         if occ is None:
             step_opts = export_mgr.createSTEPExportOptions(file_path, body)
@@ -2187,13 +2226,8 @@ class CommandHandler:
         if jt is None:
             raise RuntimeError(f"Unknown joint type: {joint_type}")
 
-        # Create joint geometry from origin points
-        origin1 = occ1.component.originConstructionPoint
-        origin2 = occ2.component.originConstructionPoint
-        geo1 = adsk.fusion.JointGeometry.createByPoint(occ1, origin1)
-        geo2 = adsk.fusion.JointGeometry.createByPoint(occ2, origin2)
-
-        inp = joints.createInput(geo1, geo2)
+        # Create joint input directly from occurrences (Fusion API v2024+)
+        inp = joints.createInput(occ1, occ2, None)
         if joint_type == "rigid":
             inp.setAsRigidJointMotion()
         joints.add(inp)
@@ -2229,8 +2263,19 @@ class CommandHandler:
                     occs.add(occ)
                     break
 
+        missing = [n for n in component_names
+                   if not any(o.component.name == n for o in root.allOccurrences)]
+        if missing:
+            raise RuntimeError(
+                f"Components not found: {missing}. "
+                f"Available: {[o.component.name for o in root.allOccurrences]}"
+            )
         if occs.count < 2:
-            raise RuntimeError("Need at least 2 components for rigid group")
+            raise RuntimeError(
+                f"Need at least 2 distinct components for rigid group, "
+                f"but only found {occs.count} from {component_names}. "
+                "Ensure component names are unique and exist."
+            )
 
         groups = root.rigidGroups
         groups.add(occs, include_children)
@@ -2317,6 +2362,15 @@ class CommandHandler:
 
     def create_section_analysis(self, plane: str = "yz", offset: float = 0):
         root = self._root()
+        design = self._design()
+
+        # Section analysis only works in direct-mode designs
+        if design.designType == adsk.fusion.DesignTypes.ParametricDesignType:
+            raise RuntimeError(
+                "Section analysis is only available in direct-mode designs. "
+                "Switch with set_design_type('direct') first."
+            )
+
         analyses = root.analyses
 
         inp = analyses.createInput()
@@ -2636,11 +2690,17 @@ class CommandHandler:
     def _get_cam(self):
         """Get the CAM product from the active document."""
         doc = self.app.activeDocument
-        cam_product = doc.products.itemByProductType("CAMProductType")
+
+        # Try both known product type identifiers
+        cam_product = doc.products.itemByProductType("Autodesk.FusionManufacturing")
+        if not cam_product:
+            cam_product = doc.products.itemByProductType("CAMProductType")
+
         if not cam_product:
             raise RuntimeError(
                 "No CAM workspace found. Open the Manufacturing workspace "
-                "in Fusion 360 at least once to initialise it."
+                "in Fusion 360 at least once to initialise it. "
+                "Then restart the add-in."
             )
         return cam_product
 
