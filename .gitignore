@@ -10,3 +10,5 @@ build/
 *.log
 
 .worktrees
+.DS_Store
+ISSUES.md
